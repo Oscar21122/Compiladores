@@ -1,0 +1,158 @@
+### VALIDO - Programa completo (if + while)
+
+programa test;
+
+vars
+x, y: entero;
+z: flotante;
+
+inicio
+{
+    x = 5;
+    y = 10;
+    z = 3.14;
+
+    si (x < y) {
+        escribe("x es menor", x);
+    };
+
+    mientras (x < y) haz {
+        x = x + 1;
+    };
+}
+fin
+
+### VALIDO - Programa mínimo
+
+programa a;
+inicio { } fin
+
+### VALIDO - Declaraciones múltiples
+
+programa multi;
+vars
+a, b, c, d: entero;
+x, y: flotante;
+inicio { } fin
+
+### VALIDO - While simple
+
+programa ciclo;
+vars x: entero;
+inicio {
+    mientras (x < 10) haz {
+        x = x + 1;
+    };
+} fin
+
+### VALIDO - Expresión compleja
+
+programa expr;
+vars x: entero;
+inicio {
+    x = (5 + 3) * (2 - 1);
+} fin
+
+### VALIDO - If-Else
+
+programa cond;
+vars x: entero;
+inicio {
+    si (x == 5) {
+        x = 1;
+    } sino {
+        x = 2;
+    };
+} fin
+
+### VALIDO - Función
+
+programa funcTest;
+
+nula miFunc(a: entero) {
+    vars x: entero;
+    {
+        x = a;
+    }
+};
+
+inicio { } fin
+
+### INVALIDO - Falta punto y coma
+
+programa test
+inicio { } fin
+
+### INVALIDO - Paréntesis sin cerrar
+
+programa test;
+inicio {
+    si (x < 5 {
+        x = 1;
+    };
+} fin
+
+### INVALIDO - Token inválido
+
+programa test;
+inicio {
+    x = @;
+} fin
+
+### INVALIDO - Orden incorrecto
+
+programa test;
+inicio { }
+vars x: entero;
+fin
+
+### INVALIDO - While mal formado
+
+programa test;
+vars x: entero;
+inicio {
+    mientras x < 10 haz {
+        x = x + 1;
+    };
+} fin
+
+### INVALIDO - Tipos mal usados (rechazado por la gramática)
+
+programa test;
+vars x: entero;
+inicio {
+    x = "hola";
+} fin
+
+### LIMITE - Expresión larga
+
+programa largo;
+vars x: entero;
+inicio {
+    x = 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9;
+} fin
+
+### LIMITE - Anidamiento profundo
+
+programa deep;
+vars x: entero;
+inicio {
+    si (x < 10) {
+        si (x < 9) {
+            si (x < 8) {
+                x = 1;
+            };
+        };
+    };
+} fin
+
+### LIMITE - Muchos parámetros
+
+programa params;
+
+nula f(a: entero, b: entero, c: entero, d: entero) {
+    {
+    }
+};
+
+inicio { } fin

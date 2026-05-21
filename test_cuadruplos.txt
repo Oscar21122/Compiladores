@@ -1,0 +1,72 @@
+### VALIDO - Expresion aritmetica
+programa p1;
+vars x, y, z: entero;
+inicio {
+    x = 5;
+    y = 3;
+    z = x + y * 2;
+}
+fin
+
+### VALIDO - Condicion si/sino
+programa p2;
+vars x: entero;
+inicio {
+    x = 1;
+    si (x < 10) {
+        x = x + 1;
+    } sino {
+        x = 0;
+    };
+}
+fin
+
+### VALIDO - Ciclo mientras
+programa p3;
+vars x: entero;
+inicio {
+    x = 0;
+    mientras (x < 5) haz {
+        x = x + 1;
+    };
+}
+fin
+
+### VALIDO - Imprime
+programa p4;
+vars n: entero;
+inicio {
+    n = 42;
+    escribe("resultado:", n);
+}
+fin
+
+### VALIDO - Funcion con llamada
+programa p5;
+vars r: entero;
+nula suma(a: entero, b: entero) {
+    vars s: entero;
+    {
+        s = a + b;
+    }
+};
+inicio {
+    r = 1;
+    suma(3, 4);
+}
+fin
+
+### INVALIDO - variable no declarada
+programa p6;
+inicio {
+    x = 5;
+}
+fin
+
+### INVALIDO - tipos incompatibles
+programa p7;
+vars x: entero;
+inicio {
+    x = 3.14;
+}
+fin

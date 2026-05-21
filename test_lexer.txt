@@ -1,0 +1,20 @@
+### VALIDO - ID
+x1
+
+### VALIDO - Entero
+123
+
+### VALIDO - Float
+3.14
+
+### VALIDO - String
+"hola"
+
+### INVALIDO - Token inválido
+@
+
+### INVALIDO - String mal cerrado
+"hola
+
+### INVALIDO - Caracter no permitido
+#

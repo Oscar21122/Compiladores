@@ -1,0 +1,100 @@
+// =======================
+// TOKENS (Scanner)
+// =======================
+
+// Palabras reservadas
+PROGRAMA: "programa"
+VARS: "vars"
+INICIO: "inicio"
+FIN: "fin"
+ENTERO: "entero"
+FLOTANTE: "flotante"
+SI: "si"
+SINO: "sino"
+MIENTRAS: "mientras"
+HAZ: "haz"
+ESCRIBE: "escribe"
+NULA: "nula"
+
+// Operadores
+OP_REL: ">" | "<" | "!=" | "=="
+OP_SUMA: "+" | "-"
+OP_MULT: "*" | "/"
+OP_ASIG: "="
+
+// Delimitadores
+LPAREN: "("
+RPAREN: ")"
+LBRACE: "{"
+RBRACE: "}"
+LBRACKET: "["
+RBRACKET: "]"
+SEMICOLON: ";"
+COLON: ":"
+COMMA: ","
+
+// Identificadores y constantes
+ID: /[a-zA-Z][a-zA-Z0-9]*/
+CTE_ENT: /[0-9]+/
+CTE_FLOT: /[0-9]+\.[0-9]+/
+LETRERO: /"[^"]*"/
+
+// Ignorar espacios
+%import common.WS
+%ignore WS
+
+
+// =======================
+// GRAMÁTICA (Parser)
+// =======================
+
+start: programa
+
+programa: PROGRAMA ID SEMICOLON vars? funcs? INICIO cuerpo FIN
+
+vars: VARS decl_var+
+
+decl_var: ID (COMMA ID)* COLON tipo SEMICOLON
+
+tipo: ENTERO | FLOTANTE
+
+cuerpo: LBRACE estatuto* RBRACE
+
+estatuto: asigna
+        | condicion
+        | ciclo
+        | llamada SEMICOLON
+        | imprime
+        | LBRACKET estatuto* RBRACKET
+
+asigna: ID OP_ASIG expresion SEMICOLON
+
+expresion: exp (OP_REL exp)?
+
+exp: termino (OP_SUMA termino)*
+
+termino: factor (OP_MULT factor)*
+
+factor: LPAREN expresion RPAREN
+      | (OP_SUMA)? (ID | cte)
+      | llamada
+
+cte: CTE_ENT | CTE_FLOT
+
+condicion: SI LPAREN expresion RPAREN cuerpo (SINO cuerpo)? SEMICOLON
+
+ciclo: MIENTRAS LPAREN expresion RPAREN HAZ cuerpo SEMICOLON
+
+imprime: ESCRIBE LPAREN imprimible (COMMA imprimible)* RPAREN SEMICOLON
+
+imprimible: expresion | LETRERO
+
+llamada: ID LPAREN (expresion (COMMA expresion)*)? RPAREN
+
+funcs: func+
+
+func: (NULA | tipo) ID LPAREN params? RPAREN LBRACE vars? cuerpo RBRACE SEMICOLON
+
+params: param (COMMA param)*
+
+param: ID COLON tipo

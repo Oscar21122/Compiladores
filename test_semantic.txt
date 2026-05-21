@@ -1,0 +1,58 @@
+### VALIDO - programa simple con vars
+programa miProg;
+vars
+  x, y : entero;
+  z : flotante;
+inicio
+{
+  x = 5;
+  y = x;
+}
+fin
+
+### INVALIDO - variable doblemente declarada
+programa miProg;
+vars
+  x : entero;
+  x : flotante;
+inicio
+{
+  x = 1;
+}
+fin
+
+### INVALIDO - variable no declarada
+programa miProg;
+inicio
+{
+  x = 5;
+}
+fin
+
+### INVALIDO - tipos incompatibles en asignacion
+programa miProg;
+vars
+  x : entero;
+inicio
+{
+  x = 3.14;
+}
+fin
+
+### VALIDO - con funcion
+programa miProg;
+vars
+  x : entero;
+nula miFuncion(a : entero)
+{
+  vars
+    b : entero;
+  {
+    b = a;
+  }
+};
+inicio
+{
+  x = 1;
+}
+fin
