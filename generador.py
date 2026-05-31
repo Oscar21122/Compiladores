@@ -1,10 +1,11 @@
 from lark import Token, Tree
 from semantic import (
-    SemanticError,       # excepción para errores semánticos
-    tipo_resultado,      # consulta el cubo semántico internamente
-    DirectorioFunciones, # registra funciones y sus ámbitos
+    SemanticError,
+    tipo_resultado,
+    DirectorioFunciones,
 )
 from cuadruplos import Pila, Cuadruplo, FilaCuadruplos
+from memoria    import MemoriaVirtual
 
 
 def es_token(nodo, tipo):
@@ -16,14 +17,15 @@ def es_arbol(nodo, regla):
 
 class GeneradorCuadruplos:
     """
-    Recorre el árbol sintáctico una sola vez.
-    En cada nodo: valida tipos/variables/funciones Y genera cuádruplos.
+    Punto único de generación: valida semántica y emite código intermedio
+    con direcciones virtuales en un solo recorrido del árbol.
     """
 
     def __init__(self):
         # ── estructuras semánticas ──────────────────────
-        self.directorio    = DirectorioFunciones()
-        self._ambito_actual = None   # EntradaFuncion activa
+        self.directorio     = DirectorioFunciones()
+        self._ambito_actual = None     # EntradaFuncion activa
+        self._programa_nom  = None     # nombre del ámbito global
 
         # ── pilas de traducción ─────────────────────────
         self.pila_ops       = Pila("P_Ops")
@@ -33,21 +35,24 @@ class GeneradorCuadruplos:
         # ── fila de cuádruplos ──────────────────────────
         self.fila = FilaCuadruplos()
 
-        # ── contador de temporales ──────────────────────
-        self._tmp_count = 0
+        # ── memoria virtual ─────────────────────────────
+        self.memoria = MemoriaVirtual()
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
-    def _nuevo_tmp(self):
-        self._tmp_count += 1
-        return f"t{self._tmp_count}"
+    def _scope(self):
+        """Devuelve 'global' o 'local' según el ámbito actual."""
+        return 'global' if self._ambito_actual.nombre == self._programa_nom else 'local'
+
+    def _nuevo_temporal(self, tipo):
+        """PN: pide al MemoriaVirtual una nueva dirección de temporal."""
+        return self.memoria.nuevo_temporal(tipo)
 
     def _ambito_global(self):
-        nombre = list(self.directorio._directorio.keys())[0]
-        return self.directorio._directorio[nombre]
+        return self.directorio.buscar(self._programa_nom)
 
     def _buscar_variable(self, nombre):
-        """Busca primero en ámbito local, luego en global. Igual que semantic.py."""
+        """Busca primero en el ámbito actual, luego en el global."""
         if self._ambito_actual.tabla_vars.existe(nombre):
             return self._ambito_actual.tabla_vars.buscar(nombre)
         global_vars = self._ambito_global().tabla_vars
@@ -65,21 +70,44 @@ class GeneradorCuadruplos:
         self._programa(tree.children[0])
 
     # ── PN-1: programa ───────────────────────────────────────────────────────
-    # Registra el programa en el directorio y establece el ámbito global.
+    # Registra el programa como ámbito global. Si hay funciones declaradas,
+    # se emite un GOTO inicial (cuádruplo 0) que las salta y aterriza en el main.
+    # Al final del cuerpo se emite un cuádruplo END.
 
     def _programa(self, nodo):
         nombre_prog = str(nodo.children[1])
-        self.directorio.agregar(nombre_prog, 'nula')        # semántico
+        self._programa_nom = nombre_prog
+        self.directorio.agregar(nombre_prog, 'nula')
         self._ambito_actual = self.directorio.buscar(nombre_prog)
 
+        # GOTO inicial que saltará al main (será relleno con backpatch)
+        idx_goto_main = self.fila.agregar(Cuadruplo('GOTO', None, None, None))
+
+        # 1) declaraciones de variables globales
         for hijo in nodo.children:
-            if   es_arbol(hijo, 'vars'):   self._vars(hijo)
-            elif es_arbol(hijo, 'funcs'):  self._funcs(hijo)
-            elif es_arbol(hijo, 'cuerpo'): self._cuerpo(hijo)
+            if es_arbol(hijo, 'vars'):
+                self._vars(hijo)
+
+        # 2) funciones (su código vive antes del main; el GOTO inicial lo salta)
+        for hijo in nodo.children:
+            if es_arbol(hijo, 'funcs'):
+                self._funcs(hijo)
+
+        # Backpatch: el GOTO inicial apunta al primer cuádruplo del main
+        self.fila.rellenar(idx_goto_main, self.fila.siguiente())
+
+        # 3) cuerpo principal (main)
+        for hijo in nodo.children:
+            if es_arbol(hijo, 'cuerpo'):
+                self._cuerpo(hijo)
+
+        # Marca final
+        self.fila.agregar(Cuadruplo('END', None, None, None))
 
     # ── PN-2: vars / decl_var ────────────────────────────────────────────────
-    # Registra cada variable con su tipo en la tabla del ámbito actual.
-    # Solo semántico — no genera cuádruplos.
+    # Por cada id declarado: pide una dirección al MemoriaVirtual según el
+    # ámbito actual (global o local) y el tipo, y registra la variable con
+    # esa dirección en la tabla del ámbito.
 
     def _vars(self, nodo):
         for hijo in nodo.children:
@@ -89,14 +117,13 @@ class GeneradorCuadruplos:
     def _decl_var(self, nodo):
         tipo_nodo = next(h for h in nodo.children if es_arbol(h, 'tipo'))
         tipo      = self._tipo(tipo_nodo)
+        scope     = self._scope()
         for hijo in nodo.children:
             if es_token(hijo, 'ID'):
-                self._ambito_actual.tabla_vars.agregar(str(hijo), tipo)  # semántico
+                direccion = self.memoria.asignar_variable(scope, tipo)
+                self._ambito_actual.tabla_vars.agregar(str(hijo), tipo, direccion)
 
     # ── PN-3/4/5: funcs / func / params ─────────────────────────────────────
-    # PN-3: registra función y cambia ámbito.
-    # PN-4: registra parámetros en la tabla local.
-    # PN-5: restaura ámbito y genera ENDFUNC.
 
     def _funcs(self, nodo):
         for hijo in nodo.children:
@@ -104,21 +131,26 @@ class GeneradorCuadruplos:
                 self._func(hijo)
 
     def _func(self, nodo):
-        primer = nodo.children[0]
-        tipo_ret = self._tipo(primer) if es_arbol(primer, 'tipo') else 'nula'
+        primer      = nodo.children[0]
+        tipo_ret    = self._tipo(primer) if es_arbol(primer, 'tipo') else 'nula'
         nombre_func = str(nodo.children[1])
 
-        self.directorio.agregar(nombre_func, tipo_ret)      # PN-3 semántico
-        ambito_previo      = self._ambito_actual
-        self._ambito_actual = self.directorio.buscar(nombre_func)
+        # PN-3: registra función, guarda dirección de inicio y cambia ámbito
+        entrada_func = self.directorio.agregar(nombre_func, tipo_ret)
+        entrada_func.inicio_cuad = self.fila.siguiente()
+
+        ambito_previo       = self._ambito_actual
+        self._ambito_actual = entrada_func
 
         for hijo in nodo.children:
-            if   es_arbol(hijo, 'params'): self._params(hijo)   # PN-4
+            if   es_arbol(hijo, 'params'): self._params(hijo)    # PN-4
             elif es_arbol(hijo, 'vars'):   self._vars(hijo)
             elif es_arbol(hijo, 'cuerpo'): self._cuerpo(hijo)
 
-        self.fila.agregar(Cuadruplo('ENDFUNC', None, None, nombre_func))  # PN-5 generación
-        self._ambito_actual = ambito_previo                                # PN-5 semántico
+        # PN-5: marca fin de la función y libera direcciones locales/temporales
+        self.fila.agregar(Cuadruplo('ENDFUNC', None, None, nombre_func))
+        self._ambito_actual = ambito_previo
+        self.memoria.reiniciar_locales()
 
     def _params(self, nodo):
         for hijo in nodo.children:
@@ -126,9 +158,11 @@ class GeneradorCuadruplos:
                 self._param(hijo)
 
     def _param(self, nodo):
-        nombre = str(nodo.children[0])
-        tipo   = self._tipo(nodo.children[2])
-        self._ambito_actual.agregar_param(nombre, tipo)     # PN-4 semántico
+        # PN-4: cada parámetro recibe dirección local del segmento correspondiente
+        nombre    = str(nodo.children[0])
+        tipo      = self._tipo(nodo.children[2])
+        direccion = self.memoria.asignar_variable('local', tipo)
+        self._ambito_actual.agregar_param(nombre, tipo, direccion)
 
     # ── cuerpo / estatuto ────────────────────────────────────────────────────
 
@@ -146,23 +180,24 @@ class GeneradorCuadruplos:
         elif es_arbol(hijo, 'llamada'):   self._llamada(hijo)
 
     # ── PN-8: asigna ─────────────────────────────────────────────────────────
-    # Semántico: verifica que el tipo de la expresión sea compatible con la variable.
-    # Generación: produce cuádruplo (=, resultado_expr, _, variable_destino).
+    # PN-8a (antes de la expresión): obtiene la dirección de la variable destino.
+    # PN-8b (después): valida compatibilidad y genera (=, dir_expr, _, dir_var).
 
     def _asigna(self, nodo):
         nombre_var = str(nodo.children[0])
-        tipo_var   = self._buscar_variable(nombre_var).tipo  # semántico: existe?
+        var        = self._buscar_variable(nombre_var)
 
-        tipo_exp = self._expresion(nodo.children[2])         # semántico: tipo resultado
-        tipo_resultado('=', tipo_var, tipo_exp)              # semántico: compatible?
+        tipo_exp = self._expresion(nodo.children[2])
+        tipo_resultado('=', var.tipo, tipo_exp)
 
-        res_op = self.pila_operandos.pop()                   # generación
+        dir_res = self.pila_operandos.pop()
         self.pila_tipos.pop()
-        self.fila.agregar(Cuadruplo('=', res_op, None, nombre_var))
+        self.fila.agregar(Cuadruplo('=', dir_res, None, var.direccion))
 
-    # ── PN-7: expresion ───────────────────────────────────────────────────────
-    # Semántico: devuelve el tipo resultante de la expresión.
-    # Generación: deja el resultado en el tope de pila_operandos.
+    # ── PN-7: expresion / exp / termino ───────────────────────────────────────
+    # PN-7a: cuando aparece un operador se apila en pila_ops.
+    # PN-7b: al terminar el operando derecho, si el operador en el tope
+    #        pertenece al nivel de precedencia actual, se genera el cuádruplo.
 
     def _expresion(self, nodo):
         hijos = nodo.children
@@ -199,8 +234,9 @@ class GeneradorCuadruplos:
         return tipo_acum
 
     # ── PN-9: factor ──────────────────────────────────────────────────────────
-    # Semántico: busca la variable y obtiene su tipo (o lee el tipo de la constante).
-    # Generación: apila el operando y su tipo en las pilas.
+    # Para un id: busca la variable, recupera su dirección y la apila.
+    # Para una cte: pide a MemoriaVirtual la dirección de la constante.
+    # Para negación unaria de id: emite mult por la cte -1, deja un temporal.
 
     def _factor(self, nodo):
         hijos = nodo.children
@@ -221,88 +257,99 @@ class GeneradorCuadruplos:
 
         if es_token(operando, 'ID'):
             nombre = str(operando)
-            tipo   = self._buscar_variable(nombre).tipo      # semántico: existe + tipo
+            var    = self._buscar_variable(nombre)
+            tipo   = var.tipo
             if signo == '-':
-                tmp = self._nuevo_tmp()
-                self.fila.agregar(Cuadruplo('*', nombre, '-1', tmp))
+                dir_menos1 = self.memoria.asignar_constante('-1', 'int')
+                tmp        = self._nuevo_temporal(tipo)
+                self.fila.agregar(Cuadruplo('*', var.direccion, dir_menos1, tmp))
                 self.pila_operandos.push(tmp)
             else:
-                self.pila_operandos.push(nombre)             # generación
+                self.pila_operandos.push(var.direccion)
             self.pila_tipos.push(tipo)
             return tipo
 
         if es_arbol(operando, 'cte'):
-            token = operando.children[0]
-            valor = ('-' if signo == '-' else '') + str(token)
-            tipo  = 'float' if token.type == 'CTE_FLOT' else 'int'
-            self.pila_operandos.push(valor)                  # generación
+            token     = operando.children[0]
+            valor     = ('-' if signo == '-' else '') + str(token)
+            tipo      = 'float' if token.type == 'CTE_FLOT' else 'int'
+            direccion = self.memoria.asignar_constante(valor, tipo)
+            self.pila_operandos.push(direccion)
             self.pila_tipos.push(tipo)
             return tipo
 
         return 'int'
 
     # ── _generar_si_aplica ────────────────────────────────────────────────────
-    # Punto neurálgico central: cuando el operador en el tope de pila_ops
-    # pertenece al nivel de precedencia actual:
-    #   Semántico: consulta el cubo semántico para obtener el tipo resultado.
-    #   Generación: desapila operandos, crea temporal, genera cuádruplo.
+    # Punto neurálgico central: si el operador en el tope de pila_ops es de la
+    # precedencia actual, desapila operandos, consulta el cubo semántico, pide
+    # una dirección temporal y emite el cuádruplo. Tras esto el resultado
+    # (la dirección del temporal) queda en el tope de pila_operandos.
 
     def _generar_si_aplica(self, ops_permitidos, tipo_izq, tipo_der):
         if self.pila_ops.vacia() or self.pila_ops.tope() not in ops_permitidos:
             return tipo_izq
 
         op       = self.pila_ops.pop()
-        tipo_res = tipo_resultado(op, tipo_izq, tipo_der)   # semántico
+        tipo_res = tipo_resultado(op, tipo_izq, tipo_der)
 
         der = self.pila_operandos.pop(); self.pila_tipos.pop()
         izq = self.pila_operandos.pop(); self.pila_tipos.pop()
-        tmp = self._nuevo_tmp()
-        self.fila.agregar(Cuadruplo(op, izq, der, tmp))     # generación
+        tmp = self._nuevo_temporal(tipo_res)
+        self.fila.agregar(Cuadruplo(op, izq, der, tmp))
         self.pila_operandos.push(tmp)
         self.pila_tipos.push(tipo_res)
         return tipo_res
 
     # ── PN-cond: condicion ────────────────────────────────────────────────────
-    # Semántico: evalúa la expresión condicional (tipo).
-    # Generación: GOTOF con backpatch, GOTO con backpatch para sino.
+    # PN-cond-1: tras la expresión se desapila la dirección del resultado
+    #            booleano y se emite GOTOF con destino pendiente.
+    # PN-cond-2: al llegar a 'sino' se emite GOTO pendiente y se hace
+    #            backpatch del GOTOF al inicio del bloque sino.
+    # PN-cond-3: al cerrar la condición se hace backpatch del GOTO/GOTOF
+    #            al cuádruplo siguiente al condicional.
 
     def _condicion(self, nodo):
         hijos = [h for h in nodo.children if isinstance(h, Tree)]
 
-        self._expresion(hijos[0])                                        # PN-cond-1
+        self._expresion(hijos[0])
         cond = self.pila_operandos.pop(); self.pila_tipos.pop()
         idx_gotof = self.fila.agregar(Cuadruplo('GOTOF', cond, None, None))
 
         self._cuerpo(hijos[1])
 
-        if len(hijos) == 3:                                              # PN-cond-2
+        if len(hijos) == 3:
             idx_goto = self.fila.agregar(Cuadruplo('GOTO', None, None, None))
             self.fila.rellenar(idx_gotof, self.fila.siguiente())
             self._cuerpo(hijos[2])
-            self.fila.rellenar(idx_goto, self.fila.siguiente())          # PN-cond-3
+            self.fila.rellenar(idx_goto, self.fila.siguiente())
         else:
-            self.fila.rellenar(idx_gotof, self.fila.siguiente())         # PN-cond-3
+            self.fila.rellenar(idx_gotof, self.fila.siguiente())
 
     # ── PN-ciclo: ciclo ───────────────────────────────────────────────────────
-    # Semántico: evalúa la expresión de control.
-    # Generación: guarda dirección de retorno, GOTOF, GOTO de vuelta.
+    # PN-ci1: guarda el índice antes de la condición (destino del salto atrás).
+    # PN-ci2: tras la expresión emite GOTOF con destino pendiente.
+    # PN-ci3: al cerrar el cuerpo emite GOTO al inicio y backpatch del GOTOF
+    #         al cuádruplo siguiente (salida del ciclo).
 
     def _ciclo(self, nodo):
         hijos = [h for h in nodo.children if isinstance(h, Tree)]
 
-        inicio = self.fila.siguiente()                                   # PN-ciclo-1
+        inicio = self.fila.siguiente()
 
-        self._expresion(hijos[0])                                        # PN-ciclo-2
+        self._expresion(hijos[0])
         cond = self.pila_operandos.pop(); self.pila_tipos.pop()
         idx_gotof = self.fila.agregar(Cuadruplo('GOTOF', cond, None, None))
 
         self._cuerpo(hijos[1])
 
-        self.fila.agregar(Cuadruplo('GOTO', None, None, inicio))         # PN-ciclo-3
+        self.fila.agregar(Cuadruplo('GOTO', None, None, inicio))
         self.fila.rellenar(idx_gotof, self.fila.siguiente())
 
     # ── imprime ───────────────────────────────────────────────────────────────
-    # Generación: PRINT por cada imprimible.
+    # Por cada imprimible: si es expresión se desapila la dirección del
+    # resultado y se emite PRINT con esa dirección; si es letrero se pide
+    # una dirección de constante string y se emite PRINT con ella.
 
     def _imprime(self, nodo):
         for hijo in nodo.children:
@@ -313,38 +360,45 @@ class GeneradorCuadruplos:
                     val = self.pila_operandos.pop(); self.pila_tipos.pop()
                     self.fila.agregar(Cuadruplo('PRINT', val, None, None))
                 elif es_token(sub, 'LETRERO'):
-                    self.fila.agregar(Cuadruplo('PRINT', str(sub), None, None))
+                    direccion = self.memoria.asignar_constante(str(sub), 'string')
+                    self.fila.agregar(Cuadruplo('PRINT', direccion, None, None))
 
     # ── PN-llam: llamada ──────────────────────────────────────────────────────
-    # Semántico: verifica existencia de función y aridad.
-    # Generación: ERA, PARAM por argumento, GOSUB, RETVAL si tiene retorno.
+    # PN-L1: verifica existencia, valida aridad y emite ERA.
+    # PN-L2: por cada argumento emite PARAM con la dirección del valor y la
+    #        dirección del parámetro destino (el i-ésimo en la función).
+    # PN-L3: emite GOSUB; si la función no es nula, emite RETVAL en un temporal
+    #        y deja ese temporal en pila_operandos para que la llamada pueda
+    #        usarse dentro de una expresión.
 
     def _llamada(self, nodo):
         nombre = str(nodo.children[0])
 
-        if not self.directorio.existe(nombre):                           # semántico
+        if not self.directorio.existe(nombre):
             raise SemanticError(f"Función no declarada: '{nombre}'")
 
         entrada = self.directorio.buscar(nombre)
         args    = [h for h in nodo.children if es_arbol(h, 'expresion')]
 
-        if len(args) != len(entrada.params):                             # semántico
+        if len(args) != len(entrada.params):
             raise SemanticError(
                 f"Aridad incorrecta en '{nombre}': "
                 f"esperados {len(entrada.params)}, recibidos {len(args)}"
             )
 
-        self.fila.agregar(Cuadruplo('ERA', nombre, None, None))          # generación
+        self.fila.agregar(Cuadruplo('ERA', nombre, None, None))
 
         for i, arg in enumerate(args):
             self._expresion(arg)
             val = self.pila_operandos.pop(); self.pila_tipos.pop()
-            self.fila.agregar(Cuadruplo('PARAM', val, None, f"param{i+1}"))
+            param_nombre, _param_tipo = entrada.params[i]
+            param_dir = entrada.tabla_vars.buscar(param_nombre).direccion
+            self.fila.agregar(Cuadruplo('PARAM', val, None, param_dir))
 
         self.fila.agregar(Cuadruplo('GOSUB', nombre, None, None))
 
         if entrada.tipo_retorno != 'nula':
-            tmp = self._nuevo_tmp()
+            tmp = self._nuevo_temporal(entrada.tipo_retorno)
             self.fila.agregar(Cuadruplo('RETVAL', nombre, None, tmp))
             self.pila_operandos.push(tmp)
             self.pila_tipos.push(entrada.tipo_retorno)

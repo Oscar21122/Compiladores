@@ -1,4 +1,5 @@
-# Importa el parser ya construido y corre las 4 fases de pruebas:
+# main.py
+# Corre las 4 fases de pruebas del compilador Patito:
 #   1. Léxico        (test_lexer.txt)
 #   2. Sintáctico    (test_parser.txt)
 #   3+4. Semántico + Cuádruplos en un solo recorrido (test_cuadruplos.txt)
@@ -63,19 +64,18 @@ def run_parser_tests():
         test_parser_input(code, expect_valid)
 
 
-# ── FASES 3+4: Semántico + Cuádruplos ────────────────────────────────────────
-# GeneradorCuadruplos hace ambas fases en un solo recorrido del árbol:
-# en cada nodo valida tipos/variables/funciones Y genera el cuádruplo.
+# ── FASES 3+4: Semántico + Cuádruplos + Direcciones Virtuales ─────────────────
 
 def test_cuadruplos_input(code, expect_valid=True):
     try:
-        tree = parser.parse(code)       # fases 1 y 2
+        tree = parser.parse(code)        # fases 1 y 2
 
         gen = GeneradorCuadruplos()
-        gen.generar(tree)               # fases 3 y 4: un solo recorrido
+        gen.generar(tree)                # fases 3 y 4
 
-        gen.directorio.imprimir()       # resultado semántico
-        gen.fila.imprimir()             # cuádruplos generados
+        gen.directorio.imprimir()        # tablas con direcciones virtuales
+        gen.memoria.imprimir_constantes()# tabla de constantes
+        gen.fila.imprimir()              # cuádruplos generados
 
         if expect_valid: print("✔ PASA: válido")
         else:            print("✖ FALLA: inválido aceptado")
@@ -88,7 +88,7 @@ def test_cuadruplos_input(code, expect_valid=True):
         else:            print("✔ PASA: error detectado →", e)
 
 def run_cuadruplos_tests():
-    print("\n================ SEMÁNTICO + CUÁDRUPLOS ================")
+    print("\n================ SEMÁNTICO + CUÁDRUPLOS + MEMORIA VIRTUAL ================")
     for title, code, expect_valid in _leer_secciones("test_cuadruplos.txt"):
         print(f"\n🧪 {title}")
         test_cuadruplos_input(code, expect_valid)

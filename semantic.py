@@ -1,7 +1,5 @@
 # semantic.py
 # Estructuras de datos y cubo semántico del compilador Patito.
-# AnalizadorSemantico fue eliminado: su lógica vive en generador.py
-# como recorrido único que valida y genera cuádruplos al mismo tiempo.
 
 # ─────────────────────────────────────────
 # CUBO SEMÁNTICO
@@ -41,26 +39,28 @@ def tipo_resultado(op, tipo_izq, tipo_der):
 
 
 # ─────────────────────────────────────────
-# TABLA DE VARIABLES
+# TABLA DE VARIABLES (con direcciones virtuales)
 # ─────────────────────────────────────────
 
 class EntradaVariable:
-    def __init__(self, nombre, tipo):
-        self.nombre = nombre
-        self.tipo   = tipo
+    def __init__(self, nombre, tipo, direccion=None):
+        self.nombre    = nombre
+        self.tipo      = tipo
+        self.direccion = direccion   # entero asignado por MemoriaVirtual
 
     def __repr__(self):
-        return f"Var({self.nombre}: {self.tipo})"
+        dir_str = f"@{self.direccion}" if self.direccion is not None else ""
+        return f"Var({self.nombre}: {self.tipo}{dir_str})"
 
 
 class TablaVariables:
     def __init__(self):
         self._tabla = {}
 
-    def agregar(self, nombre, tipo):
+    def agregar(self, nombre, tipo, direccion=None):
         if nombre in self._tabla:
             raise SemanticError(f"Variable doblemente declarada: '{nombre}'")
-        self._tabla[nombre] = EntradaVariable(nombre, tipo)
+        self._tabla[nombre] = EntradaVariable(nombre, tipo, direccion)
 
     def buscar(self, nombre):
         if nombre not in self._tabla:
@@ -82,12 +82,14 @@ class EntradaFuncion:
     def __init__(self, nombre, tipo_retorno):
         self.nombre       = nombre
         self.tipo_retorno = tipo_retorno
-        self.params       = []
+        self.params       = []          # lista ordenada de (nombre, tipo)
         self.tabla_vars   = TablaVariables()
+        self.inicio_cuad  = None        # índice del primer cuádruplo de la función
+        self.recursos     = None        # cantidad de locales/temporales por tipo
 
-    def agregar_param(self, nombre, tipo):
+    def agregar_param(self, nombre, tipo, direccion=None):
         self.params.append((nombre, tipo))
-        self.tabla_vars.agregar(nombre, tipo)
+        self.tabla_vars.agregar(nombre, tipo, direccion)
 
     def __repr__(self):
         return (f"Func({self.nombre} -> {self.tipo_retorno} | "
@@ -118,6 +120,8 @@ class DirectorioFunciones:
         for nombre, entrada in self._directorio.items():
             print(f"\n  [{nombre}]")
             print(f"    retorno : {entrada.tipo_retorno}")
+            inicio = entrada.inicio_cuad if entrada.inicio_cuad is not None else "-"
+            print(f"    inicio  : cuad {inicio}")
             print(f"    params  : {entrada.params}")
             print(f"    vars    : {list(entrada.tabla_vars._tabla.values())}")
         print("===================================\n")
