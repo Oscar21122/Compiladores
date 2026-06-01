@@ -15,6 +15,7 @@ MIENTRAS: "mientras"
 HAZ: "haz"
 ESCRIBE: "escribe"
 NULA: "nula"
+REGRESA: "regresa"
 
 // Operadores
 OP_REL: ">" | "<" | "!=" | "=="
@@ -65,9 +66,12 @@ estatuto: asigna
         | ciclo
         | llamada SEMICOLON
         | imprime
+        | regresa
         | LBRACKET estatuto* RBRACKET
 
 asigna: ID OP_ASIG expresion SEMICOLON
+
+regresa: REGRESA expresion SEMICOLON
 
 expresion: exp (OP_REL exp)?
 

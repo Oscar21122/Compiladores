@@ -56,6 +56,19 @@ inicio {
 }
 fin
 
+### VALIDO - Funcion con regresa
+programa pret;
+vars r: entero;
+entero doble(n: entero) {
+    {
+        regresa n + n;
+    }
+};
+inicio {
+    r = doble(5);
+}
+fin
+
 ### INVALIDO - variable no declarada
 programa p6;
 inicio {
@@ -69,4 +82,32 @@ vars x: entero;
 inicio {
     x = 3.14;
 }
+fin
+
+### INVALIDO - regresa en programa principal
+programa malret;
+vars r: entero;
+inicio {
+    regresa 5;
+}
+fin
+
+### INVALIDO - regresa en funcion nula
+programa nularet;
+nula proc(a: entero) {
+    {
+        regresa a;
+    }
+};
+inicio { }
+fin
+
+### INVALIDO - regresa con tipo incompatible
+programa tipret;
+entero f(n: entero) {
+    {
+        regresa 3.14;
+    }
+};
+inicio { }
 fin

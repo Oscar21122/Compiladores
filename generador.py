@@ -178,6 +178,7 @@ class GeneradorCuadruplos:
         elif es_arbol(hijo, 'ciclo'):     self._ciclo(hijo)
         elif es_arbol(hijo, 'imprime'):   self._imprime(hijo)
         elif es_arbol(hijo, 'llamada'):   self._llamada(hijo)
+        elif es_arbol(hijo, 'regresa'):   self._regresa(hijo)
 
     # ── PN-8: asigna ─────────────────────────────────────────────────────────
     # PN-8a (antes de la expresión): obtiene la dirección de la variable destino.
@@ -404,3 +405,45 @@ class GeneradorCuadruplos:
             self.pila_tipos.push(entrada.tipo_retorno)
 
         return entrada.tipo_retorno
+
+    # ── PN-R: regresa ─────────────────────────────────────────────────────────
+    # Punto neurálgico del estatuto `regresa expresion;`.
+    #
+    # Validaciones semánticas (tres):
+    #   1. El ámbito actual debe ser una función, no el programa principal.
+    #   2. La función debe tener un tipo de retorno distinto de 'nula'.
+    #   3. El tipo de la expresión debe ser compatible con el tipo de retorno
+    #      (se reusa la regla del cubo semántico para '=': float aceptado en int
+    #      es error, int aceptado en float convierte implícitamente).
+    #
+    # Generación:
+    #   Emite (RETURN, dir_valor, _, _). El operando izquierdo es la dirección
+    #   virtual del resultado de la expresión (variable, temporal o constante).
+    #   La VM, al ejecutar este cuádruplo, deposita el valor en el slot de
+    #   retorno de la función (que la instrucción RETVAL del lado del llamador
+    #   leerá después de GOSUB) y pone fin al marco de activación actual.
+
+    def _regresa(self, nodo):
+        # Validación 1: estamos dentro de una función, no en el main
+        if self._ambito_actual.nombre == self._programa_nom:
+            raise SemanticError(
+                "'regresa' sólo puede usarse dentro de una función"
+            )
+        # Validación 2: la función no es nula
+        if self._ambito_actual.tipo_retorno == 'nula':
+            raise SemanticError(
+                f"La función nula '{self._ambito_actual.nombre}' no puede "
+                f"regresar un valor"
+            )
+
+        # Evaluar la expresión y obtener su tipo
+        expr_nodo = next(h for h in nodo.children if es_arbol(h, 'expresion'))
+        tipo_expr = self._expresion(expr_nodo)
+
+        # Validación 3: compatibilidad de tipos (cubo semántico, operador '=')
+        tipo_resultado('=', self._ambito_actual.tipo_retorno, tipo_expr)
+
+        # Generar cuádruplo RETURN con la dirección del valor de retorno
+        dir_valor = self.pila_operandos.pop()
+        self.pila_tipos.pop()
+        self.fila.agregar(Cuadruplo('RETURN', dir_valor, None, None))
