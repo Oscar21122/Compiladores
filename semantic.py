@@ -86,6 +86,8 @@ class EntradaFuncion:
         self.tabla_vars   = TablaVariables()
         self.inicio_cuad  = None        # índice del primer cuádruplo de la función
         self.recursos     = None        # cantidad de locales/temporales por tipo
+        self.dir_retorno  = None        # dirección GLOBAL donde la función deja su
+                                        # valor de retorno (sólo funciones no nulas)
 
     def agregar_param(self, nombre, tipo, direccion=None):
         self.params.append((nombre, tipo))
@@ -122,6 +124,10 @@ class DirectorioFunciones:
             print(f"    retorno : {entrada.tipo_retorno}")
             inicio = entrada.inicio_cuad if entrada.inicio_cuad is not None else "-"
             print(f"    inicio  : cuad {inicio}")
+            if entrada.dir_retorno is not None:
+                print(f"    ret @   : {entrada.dir_retorno}")
+            if entrada.recursos is not None:
+                print(f"    recursos: {entrada.recursos}")
             print(f"    params  : {entrada.params}")
             print(f"    vars    : {list(entrada.tabla_vars._tabla.values())}")
         print("===================================\n")

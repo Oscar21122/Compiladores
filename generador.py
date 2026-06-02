@@ -139,6 +139,12 @@ class GeneradorCuadruplos:
         entrada_func = self.directorio.agregar(nombre_func, tipo_ret)
         entrada_func.inicio_cuad = self.fila.siguiente()
 
+        # Slot GLOBAL de retorno: la función deja aquí su valor de retorno para
+        # que RETVAL lo recoja del lado del llamador. Vive en el segmento global
+        # para sobrevivir al cierre del marco de activación de la función.
+        if tipo_ret != 'nula':
+            entrada_func.dir_retorno = self.memoria.asignar_variable('global', tipo_ret)
+
         ambito_previo       = self._ambito_actual
         self._ambito_actual = entrada_func
 
@@ -147,8 +153,10 @@ class GeneradorCuadruplos:
             elif es_arbol(hijo, 'vars'):   self._vars(hijo)
             elif es_arbol(hijo, 'cuerpo'): self._cuerpo(hijo)
 
-        # PN-5: marca fin de la función y libera direcciones locales/temporales
+        # PN-5: marca fin de la función, registra el tamaño de su marco de
+        # activación (recursos) y libera direcciones locales/temporales.
         self.fila.agregar(Cuadruplo('ENDFUNC', None, None, nombre_func))
+        entrada_func.recursos = self.memoria.recursos_locales()
         self._ambito_actual = ambito_previo
         self.memoria.reiniciar_locales()
 

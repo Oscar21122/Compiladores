@@ -1,0 +1,135 @@
+### VALIDO - Aritmetica y precedencia (esperado: 11)
+programa parit;
+vars x, y, z: entero;
+inicio {
+    x = 5;
+    y = 3;
+    z = x + y * 2;
+    escribe("z =", z);
+}
+fin
+
+### VALIDO - Ciclo mientras acumulador (esperado: 10)
+programa pciclo;
+vars i, s: entero;
+inicio {
+    i = 0;
+    s = 0;
+    mientras (i < 5) haz {
+        s = s + i;
+        i = i + 1;
+    };
+    escribe("suma 0..4 =", s);
+}
+fin
+
+### VALIDO - Condicional si/sino (esperado: mayor o igual)
+programa pcond;
+vars x: entero;
+inicio {
+    x = 7;
+    si (x < 5) {
+        escribe("menor");
+    } sino {
+        escribe("mayor o igual");
+    };
+}
+fin
+
+### VALIDO - Funcion no nula en expresion (esperado: 11)
+programa pfunc;
+vars r: entero;
+entero doble(n: entero) {
+    {
+        regresa n + n;
+    }
+};
+inicio {
+    r = doble(5) + 1;
+    escribe("doble(5)+1 =", r);
+}
+fin
+
+### VALIDO - Factorial recursivo (esperado: 120)
+programa pfact;
+vars r: entero;
+entero factorial(n: entero) {
+    {
+        si (n < 2) {
+            regresa 1;
+        } sino {
+            regresa n * factorial(n - 1);
+        };
+    }
+};
+inicio {
+    r = factorial(5);
+    escribe("5! =", r);
+}
+fin
+
+### VALIDO - Llamadas anidadas f(g(x)) (esperado: 8)
+programa panid;
+vars r: entero;
+entero mas1(a: entero) { { regresa a + 1; } };
+entero por2(b: entero) { { regresa b * 2; } };
+inicio {
+    r = por2(mas1(3));
+    escribe("por2(mas1(3)) =", r);
+}
+fin
+
+### VALIDO - Funcion nula con efecto e iteracion (esperado: hola 0,1,2 y fin)
+programa pvoid;
+vars g: entero;
+nula saluda(veces: entero) {
+    vars i: entero;
+    {
+        i = 0;
+        mientras (i < veces) haz {
+            escribe("hola", i);
+            i = i + 1;
+        };
+    }
+};
+inicio {
+    g = 3;
+    saluda(g);
+    escribe("fin");
+}
+fin
+
+### VALIDO - Aritmetica flotante y conversion implicita (esperado: 2.5)
+programa pfloat;
+vars a: flotante;
+inicio {
+    a = 5;
+    a = a / 2;
+    escribe("a =", a);
+}
+fin
+
+### INVALIDO - variable no declarada
+programa perr1;
+inicio {
+    x = 5;
+}
+fin
+
+### INVALIDO - tipos incompatibles en asignacion
+programa perr2;
+vars x: entero;
+inicio {
+    x = 3.14;
+}
+fin
+
+### INVALIDO - regresa en funcion nula
+programa perr3;
+nula proc(a: entero) {
+    {
+        regresa a;
+    }
+};
+inicio { }
+fin

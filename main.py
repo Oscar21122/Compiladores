@@ -3,10 +3,12 @@
 #   1. Léxico        (test_lexer.txt)
 #   2. Sintáctico    (test_parser.txt)
 #   3+4. Semántico + Cuádruplos en un solo recorrido (test_cuadruplos.txt)
+#   5. Máquina Virtual (test_vm.txt)
 
-from parser_patito import parser
-from semantic      import SemanticError
-from generador     import GeneradorCuadruplos
+from parser_patito   import parser
+from semantic         import SemanticError
+from generador        import GeneradorCuadruplos
+from maquina_virtual  import MaquinaVirtual
 
 
 def _leer_secciones(archivo):
@@ -94,9 +96,40 @@ def run_cuadruplos_tests():
         test_cuadruplos_input(code, expect_valid)
 
 
+# ── FASE 5: Máquina Virtual (ejecución) ───────────────────────────────────────
+
+def test_vm_input(code, expect_valid=True):
+    try:
+        tree = parser.parse(code)                 # fases 1-2
+        gen  = GeneradorCuadruplos()
+        gen.generar(tree)                          # fases 3-4
+
+        vm = MaquinaVirtual.desde_generador(gen)   # fase 5
+        print("   ── salida del programa ──")
+        vm.ejecutar()
+        vm.imprimir_memoria()
+
+        if expect_valid: print("✔ PASA: ejecutó correctamente")
+        else:            print("✖ FALLA: inválido ejecutado")
+
+    except SemanticError as e:
+        if expect_valid: print("✖ FALLA: error semántico no esperado —", e)
+        else:            print("✔ PASA: error semántico detectado →", e)
+    except Exception as e:
+        if expect_valid: print("✖ FALLA: error no esperado —", e)
+        else:            print("✔ PASA: error detectado →", e)
+
+def run_vm_tests():
+    print("\n================ MÁQUINA VIRTUAL (EJECUCIÓN) ================")
+    for title, code, expect_valid in _leer_secciones("test_vm.txt"):
+        print(f"\n🧪 {title}")
+        test_vm_input(code, expect_valid)
+
+
 # ── entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     run_lexer_tests()
     run_parser_tests()
     run_cuadruplos_tests()
+    run_vm_tests()

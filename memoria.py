@@ -110,6 +110,21 @@ class MemoriaVirtual:
         self._consts[clave] = dir_virtual
         return dir_virtual
 
+    # ── recursos del ámbito actual (para ERA) ─────────────────────────────────
+    def recursos_locales(self):
+        """
+        Fotografía cuántas direcciones se han consumido en los segmentos local y
+        temporal del ámbito que se está cerrando. La usa el generador para
+        guardar, por función, el tamaño exacto del marco de activación que ERA
+        deberá reservar en tiempo de ejecución.
+        """
+        return {
+            'local_int':    self._segmentos[('local',    'int')].contador,
+            'local_float':  self._segmentos[('local',    'float')].contador,
+            'temp_int':     self._segmentos[('temporal',  'int')].contador,
+            'temp_float':   self._segmentos[('temporal',  'float')].contador,
+        }
+
     # ── reciclaje de ámbito local ────────────────────────────────────────────
     def reiniciar_locales(self):
         self._segmentos[('local', 'int')].reiniciar()
@@ -123,3 +138,17 @@ class MemoriaVirtual:
         for (val, tipo), dir_v in sorted(self._consts.items(), key=lambda x: x[1]):
             print(f"  {dir_v:<6} <- {val}  ({tipo})")
         print("===============================\n")
+
+    # ── tabla de constantes para la Máquina Virtual ───────────────────────────
+    def tabla_constantes(self):
+        """
+        Devuelve {direccion_virtual: valor_ya_convertido} para que la VM cargue
+        el segmento de constantes en su memoria de ejecución. Convierte cada
+        literal a su tipo de Python: int, float o str (sin comillas).
+        """
+        tabla = {}
+        for (val, tipo), dir_v in self._consts.items():
+            if   tipo == 'int':    tabla[dir_v] = int(val)
+            elif tipo == 'float':  tabla[dir_v] = float(val)
+            else:                  tabla[dir_v] = val.strip('"')  # string
+        return tabla
