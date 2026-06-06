@@ -1,0 +1,4 @@
+# Dependencias del compilador Patito
+# Instalar con: pip install -r requirements.txt
+ 
+lark==1.3.1
