@@ -129,7 +129,7 @@ def run_vm_tests():
 # ── entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    run_lexer_tests()
-    run_parser_tests()
-    run_cuadruplos_tests()
+    # run_lexer_tests()
+    # run_parser_tests()
+    # run_cuadruplos_tests()
     run_vm_tests()

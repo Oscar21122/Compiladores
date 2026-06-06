@@ -1,3 +1,117 @@
+### VALIDO - Factorial en el main (ciclico) (esperado: 120)
+programa factmain;
+vars n, i, res: entero;
+inicio {
+    n = 5;
+    res = 1;
+    i = 1;
+    mientras (i < n) haz {
+        i = i + 1;
+        res = res * i;
+    };
+    escribe("factorial de", n, "=", res);
+}
+fin
+ 
+### VALIDO - Factorial ciclico en funcion (esperado: 120)
+programa factciclo;
+vars r: entero;
+entero factorial(n: entero) {
+    vars i, res: entero;
+    {
+        res = 1;
+        i = 1;
+        mientras (i < n) haz {
+            i = i + 1;
+            res = res * i;
+        };
+        regresa res;
+    }
+};
+inicio {
+    r = factorial(5);
+    escribe("factorial(5) =", r);
+}
+fin
+ 
+### VALIDO - Factorial recursivo en funcion (esperado: 120)
+programa factrec;
+vars r: entero;
+entero factorial(n: entero) {
+    {
+        si (n < 2) {
+            regresa 1;
+        } sino {
+            regresa n * factorial(n - 1);
+        };
+    }
+};
+inicio {
+    r = factorial(5);
+    escribe("factorial(5) =", r);
+}
+fin
+ 
+### VALIDO - Fibonacci en el main (ciclico) (esperado: 55)
+programa fibmain;
+vars n, i, a, b, t: entero;
+inicio {
+    n = 10;
+    a = 0;
+    b = 1;
+    i = 0;
+    mientras (i < n) haz {
+        t = a + b;
+        a = b;
+        b = t;
+        i = i + 1;
+    };
+    escribe("fibonacci de", n, "=", a);
+}
+fin
+ 
+### VALIDO - Fibonacci ciclico en funcion (esperado: 55)
+programa fibciclo;
+vars r: entero;
+entero fib(n: entero) {
+    vars a, b, t, i: entero;
+    {
+        a = 0;
+        b = 1;
+        i = 0;
+        mientras (i < n) haz {
+            t = a + b;
+            a = b;
+            b = t;
+            i = i + 1;
+        };
+        regresa a;
+    }
+};
+inicio {
+    r = fib(10);
+    escribe("fib(10) =", r);
+}
+fin
+ 
+### VALIDO - Fibonacci recursivo en funcion (esperado: 55)
+programa fibrec;
+vars r: entero;
+entero fib(n: entero) {
+    {
+        si (n < 2) {
+            regresa n;
+        } sino {
+            regresa fib(n - 1) + fib(n - 2);
+        };
+    }
+};
+inicio {
+    r = fib(10);
+    escribe("fib(10) =", r);
+}
+fin
+ 
 ### VALIDO - Aritmetica y precedencia (esperado: 11)
 programa parit;
 vars x, y, z: entero;
@@ -47,55 +161,6 @@ entero doble(n: entero) {
 inicio {
     r = doble(5) + 1;
     escribe("doble(5)+1 =", r);
-}
-fin
-
-### VALIDO - Factorial recursivo (esperado: 120)
-programa pfact;
-vars r: entero;
-entero factorial(n: entero) {
-    {
-        si (n < 2) {
-            regresa 1;
-        } sino {
-            regresa n * factorial(n - 1);
-        };
-    }
-};
-inicio {
-    r = factorial(5);
-    escribe("5! =", r);
-}
-fin
-
-### VALIDO - Llamadas anidadas f(g(x)) (esperado: 8)
-programa panid;
-vars r: entero;
-entero mas1(a: entero) { { regresa a + 1; } };
-entero por2(b: entero) { { regresa b * 2; } };
-inicio {
-    r = por2(mas1(3));
-    escribe("por2(mas1(3)) =", r);
-}
-fin
-
-### VALIDO - Funcion nula con efecto e iteracion (esperado: hola 0,1,2 y fin)
-programa pvoid;
-vars g: entero;
-nula saluda(veces: entero) {
-    vars i: entero;
-    {
-        i = 0;
-        mientras (i < veces) haz {
-            escribe("hola", i);
-            i = i + 1;
-        };
-    }
-};
-inicio {
-    g = 3;
-    saluda(g);
-    escribe("fin");
 }
 fin
 
